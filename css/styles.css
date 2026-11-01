@@ -927,7 +927,9 @@ input::placeholder {
   background: #ffffff20;
 }
 .suggestions {
-  background: #1e3840f5;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
   color: var(--ink);
 }
 .suggestions button:hover,
@@ -1293,5 +1295,44 @@ footer {
   .units {
     grid-column: 3;
     grid-row: 2;
+  }
+}
+
+/* Keep toolbar glass on a sibling layer so it does not clip the menu's backdrop. */
+.tools {
+  position: relative;
+  z-index: 0;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.tools::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+@media (max-width: 580px) {
+  header {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .tools::before { display: none; }
+  header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    pointer-events: none;
   }
 }
