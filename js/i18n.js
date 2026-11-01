@@ -2,7 +2,6 @@
 /* Interface translations. Spanish is the default unless the user saved English. */
 const WeatherI18n = (() => {
   const english = {
-    "El tiempo": "Weather",
     "Buscar una ciudad": "Search for a city",
     "Sugerencias de ciudades": "City suggestions",
     "Usar mi ubicación": "Use my location",

@@ -1323,7 +1323,9 @@ footer {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  .tools::before { display: none; }
+  .tools::before {
+    display: none;
+  }
   header::before {
     content: "";
     position: absolute;
