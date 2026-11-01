@@ -1,4 +1,5 @@
 "use strict";
+const t = WeatherI18n.t;
 /* Data and formatting. All weather values come from Open-Meteo; no sample forecasts. */
 const $ = (id) => document.getElementById(id);
 const icon = (name) =>
@@ -7,7 +8,7 @@ const state = {
   data: null,
   place: {
     name: "Madrid",
-    country: "España",
+    country: t("España"),
     latitude: 40.4168,
     longitude: -3.7038,
   },
@@ -18,32 +19,56 @@ const state = {
   loaded: 0,
 };
 try {
-  state.place = JSON.parse(localStorage.getItem("weather-place")) || state.place;
+  state.place =
+    JSON.parse(localStorage.getItem("weather-place")) || state.place;
   state.unit = localStorage.getItem("weather-unit") || "c";
 } catch {}
+function placeName(place = state.place) {
+  return place.kind === "current-location" ||
+    ["Tu ubicación", "Your location"].includes(place.name)
+    ? t("Tu ubicación")
+    : place.name;
+}
+function renderPlace() {
+  $("city").textContent = placeName();
+  let country = state.place.country;
+  if (state.place.country_code) {
+    try {
+      country = new Intl.DisplayNames([WeatherI18n.locale], {
+        type: "region",
+      }).of(state.place.country_code);
+    } catch {}
+  } else if (country === "España" || country === "Spain") country = t("España");
+  $("region").textContent = [state.place.admin1, country]
+    .filter(Boolean)
+    .join(", ");
+}
 const conditions = (code) => {
-  if (code === 0) return ["Despejado", "sun"];
-  if (code === 1) return ["Mayormente despejado", "partly"];
-  if (code === 2) return ["Parcialmente nublado", "partly"];
-  if (code === 3) return ["Cielo cubierto", "cloud"];
-  if ([45, 48].includes(code)) return ["Niebla", "fog"];
-  if ([51, 53, 55].includes(code)) return ["Llovizna", "rain"];
-  if ([56, 57, 66, 67].includes(code)) return ["Lluvia helada", "rain"];
+  if (code === 0) return [t("Despejado"), "sun"];
+  if (code === 1) return [t("Mayormente despejado"), "partly"];
+  if (code === 2) return [t("Parcialmente nublado"), "partly"];
+  if (code === 3) return [t("Cielo cubierto"), "cloud"];
+  if ([45, 48].includes(code)) return [t("Niebla"), "fog"];
+  if ([51, 53, 55].includes(code)) return [t("Llovizna"), "rain"];
+  if ([56, 57, 66, 67].includes(code)) return [t("Lluvia helada"), "rain"];
   if ([61, 63, 65].includes(code))
-    return [code === 65 ? "Lluvia intensa" : "Lluvia", "rain"];
-  if ([71, 73, 75, 77].includes(code)) return ["Nieve", "snow"];
-  if ([80, 81, 82].includes(code)) return ["Chubascos", "rain"];
-  if ([85, 86].includes(code)) return ["Chubascos de nieve", "snow"];
-  if ([95, 96, 99].includes(code)) return ["Tormenta", "storm"];
-  return ["Condición no disponible", "cloud"];
+    return [code === 65 ? t("Lluvia intensa") : t("Lluvia"), "rain"];
+  if ([71, 73, 75, 77].includes(code)) return [t("Nieve"), "snow"];
+  if ([80, 81, 82].includes(code)) return [t("Chubascos"), "rain"];
+  if ([85, 86].includes(code)) return [t("Chubascos de nieve"), "snow"];
+  if ([95, 96, 99].includes(code)) return [t("Tormenta"), "storm"];
+  return [t("Condición no disponible"), "cloud"];
 };
 const valid = (n) => typeof n === "number" && Number.isFinite(n);
 const number = (n, d = 0) =>
-  valid(n) ? n.toLocaleString("es-ES", { maximumFractionDigits: d }) : "—";
+  valid(n)
+    ? n.toLocaleString(WeatherI18n.locale, { maximumFractionDigits: d })
+    : "—";
 const temp = (n) =>
   valid(n) ? Math.round(state.unit === "f" ? (n * 9) / 5 + 32 : n) + "°" : "—";
 const fmt = (ts, opts) =>
-  new Intl.DateTimeFormat("es-ES", {
+  new Intl.DateTimeFormat(WeatherI18n.locale, {
+    hourCycle: "h23",
     timeZone: state.data?.timezone || "Europe/Madrid",
     ...opts,
   }).format(new Date(ts * 1000));
@@ -82,16 +107,18 @@ function weatherIcon(code, day = true) {
   const type = conditions(code)[1];
   return icon(!day && ["sun", "partly"].includes(type) ? "moon" : type);
 }
+let lastStatus;
 function status(message, error = false, retry = false) {
+  lastStatus = { message, error, retry };
   $("status").className = "status" + (error ? " error" : "");
   $("status").replaceChildren();
   const span = document.createElement("span");
   span.className = "status-message";
-  span.textContent = message;
+  span.textContent = typeof message === "function" ? message() : t(message);
   $("status").append(span);
   if (retry) {
     const b = document.createElement("button");
-    b.textContent = "Reintentar";
+    b.textContent = t("Reintentar");
     b.onclick = () => loadWeather(true);
     $("status").append(b);
   }
@@ -110,29 +137,27 @@ async function loadWeather(force = false) {
   $("hero").classList.add("loading");
   if (!state.data) {
     $("temperature").textContent = "—";
-    $("condition").textContent = "Consultando el tiempo";
+    $("condition").textContent = t("Consultando el tiempo");
     $("condition-icon").replaceChildren();
-    $("feels").textContent = "Esperando las condiciones reales";
-    $("max").textContent = "Máx. —";
-    $("min").textContent = "Mín. —";
-    $("datetime").textContent = "Conectando con el cielo…";
-    $("live").textContent = "Conectando con Open-Meteo";
+    $("feels").textContent = t("Esperando las condiciones reales");
+    $("max").textContent = t("Máx. —");
+    $("min").textContent = t("Mín. —");
+    $("datetime").textContent = t("Conectando con el cielo…");
+    $("live").textContent = t("Conectando con Open-Meteo");
     $("hours").className = "empty";
-    $("hours").textContent = "La previsión horaria aparecerá aquí.";
+    $("hours").textContent = t("La previsión horaria aparecerá aquí.");
     $("days").innerHTML =
-      '<p class="empty">Esperando la previsión de esta semana.</p>';
+      `<p class="empty">${t("Esperando la previsión de esta semana.")}</p>`;
     renderMetrics({});
     $("sunrise").textContent = $("sunset").textContent = "—:—";
     $("return").hidden = true;
-    $("day-caption").textContent =
-      "Selecciona un día para explorar su previsión.";
-    $("details-time").textContent = "Ahora";
+    $("day-caption").textContent = t(
+      "Selecciona un día para explorar su previsión.",
+    );
+    $("details-time").textContent = t("Ahora");
   }
-  $("city").textContent = place.name;
-  $("region").textContent = [place.admin1, place.country]
-    .filter(Boolean)
-    .join(", ");
-  status("Actualizando las condiciones meteorológicas…");
+  renderPlace();
+  status(t("Actualizando las condiciones meteorológicas…"));
   try {
     const key = `weather-${place.latitude.toFixed(3)}-${place.longitude.toFixed(3)}`;
     let cached = cache.get(key);
@@ -179,30 +204,34 @@ async function loadWeather(force = false) {
       localStorage.setItem("weather-place", JSON.stringify(place));
     } catch {}
     render();
-    status(
-      "Actualizado a las " +
-        clock(data.current.time) +
-        " · Hora local de " +
-        place.name,
+    status(() =>
+      t("Actualizado a las {time} · Hora local de {city}", {
+        time: clock(data.current.time),
+        city: placeName(place),
+      }),
     );
     $("hour-scroll").scrollLeft = 0;
   } catch (error) {
     if (seq !== state.request) return;
     status(
       navigator.onLine
-        ? "No se ha podido obtener el tiempo. Comprueba la conexión y vuelve a intentarlo."
-        : "Sin conexión. Conéctate a internet para consultar el tiempo.",
+        ? t(
+            "No se ha podido obtener el tiempo. Comprueba la conexión y vuelve a intentarlo.",
+          )
+        : t("Sin conexión. Conéctate a internet para consultar el tiempo."),
       true,
       true,
     );
     if (!state.data) {
-      $("condition").textContent = "No hay datos disponibles";
-      $("feels").textContent =
-        "Reintenta la consulta para ver las condiciones reales";
-      $("live").textContent = "Sin datos meteorológicos";
-      $("datetime").textContent =
-        "La conexión con Open-Meteo no está disponible";
-    } else $("live").textContent = "Datos anteriores · sin actualizar";
+      $("condition").textContent = t("No hay datos disponibles");
+      $("feels").textContent = t(
+        "Reintenta la consulta para ver las condiciones reales",
+      );
+      $("live").textContent = t("Sin datos meteorológicos");
+      $("datetime").textContent = t(
+        "La conexión con Open-Meteo no está disponible",
+      );
+    } else $("live").textContent = t("Datos anteriores · sin actualizar");
   } finally {
     if (seq === state.request) $("hero").classList.remove("loading");
   }
@@ -219,7 +248,7 @@ function render() {
     daily = d.daily;
   state.day = di;
   const condition = conditions(w.weather_code);
-  $("city").textContent = state.place.name;
+  renderPlace();
   $("datetime").textContent =
     fmt(w.time, { weekday: "long", day: "numeric", month: "long" }) +
     " · " +
@@ -230,14 +259,18 @@ function render() {
   $("degree").textContent = state.unit === "f" ? "°F" : "°C";
   $("condition").textContent = condition[0];
   $("condition-icon").innerHTML = weatherIcon(w.weather_code, w.is_day);
-  $("feels").textContent =
-    "Sensación térmica de " + temp(w.apparent_temperature);
-  $("max").textContent = "↑ " + temp(daily.temperature_2m_max[di]) + " máx.";
-  $("min").textContent = "↓ " + temp(daily.temperature_2m_min[di]) + " mín.";
+  $("feels").textContent = t("Sensación térmica de {temperature}", {
+    temperature: temp(w.apparent_temperature),
+  });
+  $("max").textContent =
+    "↑ " + temp(daily.temperature_2m_max[di]) + " " + t("máx.");
+  $("min").textContent =
+    "↓ " + temp(daily.temperature_2m_min[di]) + " " + t("mín.");
   $("live").textContent =
     state.selected === null
-      ? "Condiciones actuales"
-      : "Previsión · " +
+      ? t("Condiciones actuales")
+      : t("Previsión") +
+        " · " +
         fmt(w.time, {
           weekday: "short",
           hour: "2-digit",
@@ -245,7 +278,7 @@ function render() {
         });
   $("return").hidden = state.selected === null;
   $("details-time").textContent =
-    state.selected === null ? "Ahora" : clock(w.time);
+    state.selected === null ? t("Ahora") : clock(w.time);
   $("sunrise").textContent = clock(daily.sunrise[di]);
   $("sunset").textContent = clock(daily.sunset[di]);
   $("day-caption").textContent =
@@ -255,8 +288,9 @@ function render() {
       month: "long",
     }) +
     " · " +
-    number(daily.precipitation_sum[di], 1) +
-    " mm de precipitación prevista";
+    t("{amount} mm de precipitación prevista", {
+      amount: number(daily.precipitation_sum[di], 1),
+    });
   renderHours();
   renderDays();
   renderMetrics(w);
@@ -290,7 +324,7 @@ function renderHours() {
   ]);
   $("hours").className = "hour-inner";
   $("hours").innerHTML =
-    `<svg class="temp-graph" viewBox="0 0 1920 25" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#92ad80" stop-opacity=".2"/><stop offset="1" stop-color="#92ad80" stop-opacity="0"/></linearGradient></defs><path d="M${points.map((p) => p.join(",")).join(" L")} L${points.at(-1)[0]},25 L40,25Z" fill="url(#chart-fill)"/><polyline points="${points.map((p) => p.join(",")).join(" ")}" fill="none" stroke="#9aad80" stroke-width="1.5"/></svg><div class="hour-list">${indexes.map((i, n) => `<button class="hour" data-hour="${i}" aria-pressed="${state.selected === i || (state.selected === null && n === 0)}" aria-label="Ver previsión: ${clock(h.time[i])}, ${temp(h.temperature_2m[i])}, ${conditions(h.weather_code[i])[0]}"><span>${n === 0 ? "Ahora" : clock(h.time[i])}</span>${weatherIcon(h.weather_code[i], h.is_day[i])}<span class="hour-temp">${temp(h.temperature_2m[i])}</span><span class="rain">${icon("drop")}${number(h.precipitation_probability[i])}%</span></button>`).join("")}</div>`;
+    `<svg class="temp-graph" viewBox="0 0 1920 25" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#92ad80" stop-opacity=".2"/><stop offset="1" stop-color="#92ad80" stop-opacity="0"/></linearGradient></defs><path d="M${points.map((p) => p.join(",")).join(" L")} L${points.at(-1)[0]},25 L40,25Z" fill="url(#chart-fill)"/><polyline points="${points.map((p) => p.join(",")).join(" ")}" fill="none" stroke="#9aad80" stroke-width="1.5"/></svg><div class="hour-list">${indexes.map((i, n) => `<button class="hour" data-hour="${i}" aria-pressed="${state.selected === i || (state.selected === null && n === 0)}" aria-label="${t("Ver previsión: {time}, {temperature}, {condition}", { time: clock(h.time[i]), temperature: temp(h.temperature_2m[i]), condition: conditions(h.weather_code[i])[0] })}"><span>${n === 0 ? t("Ahora") : clock(h.time[i])}</span>${weatherIcon(h.weather_code[i], h.is_day[i])}<span class="hour-temp">${temp(h.temperature_2m[i])}</span><span class="rain">${icon("drop")}${number(h.precipitation_probability[i])}%</span></button>`).join("")}</div>`;
 }
 function renderDays() {
   const d = state.data.daily,
@@ -299,14 +333,14 @@ function renderDays() {
   $("days").innerHTML = d.time
     .slice(0, 7)
     .map(
-      (t, i) =>
-        `<button class="day" data-day="${i}" aria-pressed="${state.day === i}" aria-label="Consultar ${fmt(t, { weekday: "long" })}, máxima ${temp(d.temperature_2m_max[i])}, mínima ${temp(d.temperature_2m_min[i])}"><span>${i === 0 ? "Hoy" : fmt(t, { weekday: "short" }).replace(".", "")}</span>${weatherIcon(d.weather_code[i])}<span class="desc">${conditions(d.weather_code[i])[0]}</span><span class="min">${temp(d.temperature_2m_min[i])}</span><span class="range"><span style="left:${((d.temperature_2m_min[i] - min) / (max - min || 1)) * 100}%;width:${Math.max(4, ((d.temperature_2m_max[i] - d.temperature_2m_min[i]) / (max - min || 1)) * 100)}%"></span></span><span>${temp(d.temperature_2m_max[i])}</span><span class="prob">${number(d.precipitation_probability_max[i])}%</span></button>`,
+      (timestamp, i) =>
+        `<button class="day" data-day="${i}" aria-pressed="${state.day === i}" aria-label="${WeatherI18n.t("Consultar {day}, máxima {high}, mínima {low}", { day: fmt(timestamp, { weekday: "long" }), high: temp(d.temperature_2m_max[i]), low: temp(d.temperature_2m_min[i]) })}"><span>${i === 0 ? t("Hoy") : fmt(timestamp, { weekday: "short" }).replace(".", "")}</span>${weatherIcon(d.weather_code[i])}<span class="desc">${conditions(d.weather_code[i])[0]}</span><span class="min">${temp(d.temperature_2m_min[i])}</span><span class="range"><span style="left:${((d.temperature_2m_min[i] - min) / (max - min || 1)) * 100}%;width:${Math.max(4, ((d.temperature_2m_max[i] - d.temperature_2m_min[i]) / (max - min || 1)) * 100)}%"></span></span><span>${temp(d.temperature_2m_max[i])}</span><span class="prob">${number(d.precipitation_probability_max[i])}%</span></button>`,
     )
     .join("");
 }
 function renderMetrics(w) {
   const direction = valid(w.wind_direction_10m)
-    ? ["N", "NE", "E", "SE", "S", "SO", "O", "NO"][
+    ? ["N", "NE", "E", "SE", "S", t("SO"), t("O"), t("NO")][
         Math.round(w.wind_direction_10m / 45) % 8
       ]
     : "—";
@@ -314,47 +348,53 @@ function renderMetrics(w) {
   const metrics = [
     [
       "drop",
-      "Humedad",
+      t("Humedad"),
       number(w.relative_humidity_2m),
       "%",
-      "Humedad relativa",
+      t("Humedad relativa"),
     ],
     [
       "wind",
-      "Viento",
+      t("Viento"),
       number(w.wind_speed_10m),
       "km/h",
-      "Dirección " + direction,
+      t("Dirección {direction}", { direction }),
     ],
     [
       "sun",
-      "Índice UV",
+      t("Índice UV"),
       number(uv, 1),
       "",
       !valid(uv)
-        ? "Sin datos"
+        ? t("Sin datos")
         : uv < 3
-          ? "Exposición baja"
+          ? t("Exposición baja")
           : uv < 6
-            ? "Exposición moderada"
+            ? t("Exposición moderada")
             : uv < 8
-              ? "Exposición alta"
-              : "Exposición muy alta",
+              ? t("Exposición alta")
+              : t("Exposición muy alta"),
     ],
-    ["rain", "Precipitación", number(w.precipitation, 1), "mm", "En esta hora"],
+    [
+      "rain",
+      t("Precipitación"),
+      number(w.precipitation, 1),
+      "mm",
+      t("En esta hora"),
+    ],
     [
       "eye",
-      "Visibilidad",
+      t("Visibilidad"),
       number(valid(w.visibility) ? w.visibility / 1000 : null, 1),
       "km",
-      "Al nivel del suelo",
+      t("Al nivel del suelo"),
     ],
     [
       "cloud",
-      "Prob. de lluvia",
+      t("Prob. de lluvia"),
       number(w.precipitation_probability),
       "%",
-      "En esta hora",
+      t("En esta hora"),
     ],
   ];
   $("metrics").innerHTML = metrics
@@ -379,7 +419,7 @@ $("search").addEventListener("input", () => {
   searchTimer = setTimeout(async () => {
     searchController = new AbortController();
     $("suggestions").innerHTML =
-      '<div class="search-message">Buscando ciudades…</div>';
+      `<div class="search-message">${t("Buscando ciudades…")}</div>`;
     $("search").setAttribute("aria-expanded", "true");
     try {
       const data = await fetch(
@@ -387,7 +427,7 @@ $("search").addEventListener("input", () => {
           new URLSearchParams({
             name: query,
             count: 6,
-            language: "es",
+            language: WeatherI18n.language,
             format: "json",
           }),
         { signal: searchController.signal },
@@ -399,7 +439,7 @@ $("search").addEventListener("input", () => {
       $("suggestions").replaceChildren();
       if (!data.results?.length) {
         $("suggestions").innerHTML =
-          '<div class="search-message">No se encontraron ciudades. Prueba otro nombre.</div>';
+          `<div class="search-message">${t("No se encontraron ciudades. Prueba otro nombre.")}</div>`;
         return;
       }
       data.results.forEach((p) => {
@@ -423,7 +463,7 @@ $("search").addEventListener("input", () => {
     } catch (e) {
       if (e.name !== "AbortError")
         $("suggestions").innerHTML =
-          '<div class="search-message">No se pudo buscar. Comprueba tu conexión e inténtalo de nuevo.</div>';
+          `<div class="search-message">${t("No se pudo buscar. Comprueba tu conexión e inténtalo de nuevo.")}</div>`;
     }
   }, 320);
 });
@@ -464,28 +504,31 @@ function detectLocation(initial = false) {
       await loadWeather();
       if (request === locationRequest && state.data)
         status(
-          message +
-            " Mostrando " +
-            state.place.name +
-            ". Puedes buscar otra ciudad.",
+          () =>
+            t(message) +
+            " " +
+            t("Mostrando {city}. Puedes buscar otra ciudad.", {
+              city: placeName(state.place),
+            }),
         );
-    } else status(message + " Puedes buscar tu ciudad.", true);
+    } else status(() => t(message) + " " + t("Puedes buscar tu ciudad."), true);
   };
   if (!navigator.geolocation) {
-    fallback("Este navegador no permite usar la ubicación.");
+    fallback(t("Este navegador no permite usar la ubicación."));
     return;
   }
   $("locate").disabled = true;
-  status("Buscando tu ubicación. Permite el acceso en el navegador…");
+  status(t("Buscando tu ubicación. Permite el acceso en el navegador…"));
   if (initial) {
-    $("city").textContent = "Tu ubicación";
-    $("region").textContent = "Localizando…";
+    $("city").textContent = t("Tu ubicación");
+    $("region").textContent = t("Localizando…");
   }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       if (request !== locationRequest) return;
       $("locate").disabled = false;
       state.place = {
+        kind: "current-location",
         name: "Tu ubicación",
         country: `${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}°`,
         latitude: pos.coords.latitude,
@@ -497,8 +540,8 @@ function detectLocation(initial = false) {
     (error) =>
       fallback(
         error.code === 1
-          ? "El permiso de ubicación está desactivado."
-          : "No se pudo obtener tu ubicación.",
+          ? t("El permiso de ubicación está desactivado.")
+          : t("No se pudo obtener tu ubicación."),
       ),
     { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 },
   );
@@ -574,7 +617,9 @@ $("next-hours").onclick = () =>
 window.addEventListener("online", () => loadWeather(true));
 window.addEventListener("offline", () =>
   status(
-    "Sin conexión. Los datos visibles no se actualizarán hasta recuperar internet.",
+    t(
+      "Sin conexión. Los datos visibles no se actualizarán hasta recuperar internet.",
+    ),
     true,
     true,
   ),
@@ -1183,6 +1228,49 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - state.loaded > 600000) loadWeather();
 });
 reduced.addEventListener("change", startAnimation);
+$("language").addEventListener("change", (event) =>
+  WeatherI18n.setLanguage(event.target.value),
+);
+document.addEventListener("weather:languagechange", () => {
+  const scrollLeft = $("hour-scroll").scrollLeft;
+  const previousStatus = lastStatus;
+  const previousLive = $("live").textContent;
+  if (state.data) {
+    render();
+    if (previousStatus?.error) $("live").textContent = t(previousLive);
+  } else {
+    for (const id of [
+      "city",
+      "region",
+      "condition",
+      "feels",
+      "max",
+      "min",
+      "datetime",
+      "live",
+      "hours",
+      "day-caption",
+      "details-time",
+    ]) {
+      $(id).textContent = t($(id).textContent.trim());
+    }
+    $("days")
+      .querySelectorAll(".empty")
+      .forEach((el) => {
+        el.textContent = t(el.textContent.trim());
+      });
+    renderMetrics({});
+  }
+  $("hour-scroll").scrollLeft = scrollLeft;
+  if (previousStatus)
+    status(previousStatus.message, previousStatus.error, previousStatus.retry);
+  clearTimeout(searchTimer);
+  searchController?.abort();
+  closeSearch();
+  if ($("search").value.trim().length >= 2)
+    $("search").dispatchEvent(new Event("input"));
+});
+WeatherI18n.apply();
 renderMetrics({});
 resize();
 startAnimation();
