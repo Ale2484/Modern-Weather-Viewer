@@ -638,7 +638,8 @@ let width = 1200,
   lastFrame = 0,
   elapsed = 0,
   previousTime = 0,
-  lightningAt = 15 + Math.random() * 20,
+  lightningAt = Infinity,
+  lightning = null,
   flash = 0,
   snowCover = 0;
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
@@ -665,7 +666,10 @@ let particleFall = 0,
   particleDrift = 0;
 function updatePrecipitation(dt) {
   const speed =
-    scene.snow > 0.2 ? 13 : 280 + scene.rain * 180 + scene.shower * 100;
+    scene.snow > 0.2
+      ? 13
+      : (700 + scene.rain * 700 + scene.shower * 220 + scene.storm * 260) *
+        Math.max(1, height / 900);
   particleFall += speed * dt;
   particleDrift += (scene.snow > 0.2 ? 12 : 50) * (1 + scene.wind * 0.025) * dt;
 }
@@ -711,6 +715,7 @@ function setScene(w, di) {
     : type === "cloud"
       ? 1
       : 0.1;
+  const enteringStorm = type === "storm" && target.storm < 0.5;
   target = {
     night,
     dusk,
@@ -729,12 +734,22 @@ function setScene(w, di) {
         ? Math.max(0, Math.min(1, (time - rise) / (set - rise)))
         : 0.5,
   };
+  if (enteringStorm) lightningAt = elapsed + 0.8 + Math.random() * 1.2;
+  if (!target.storm || reduced.matches) {
+    lightningAt = Infinity;
+    lightning = null;
+    flash = 0;
+  }
   if (reduced.matches) {
     scene = { ...target };
     snowCover = target.snow;
     draw(0);
   }
 }
+const landscapeCache = document.createElement("canvas");
+const landscapeCacheContext = landscapeCache.getContext("2d");
+let lastLandscapeTime = -Infinity;
+
 function resize() {
   const rect = canvas.getBoundingClientRect();
   width = rect.width;
@@ -742,6 +757,9 @@ function resize() {
   dpr = Math.min(devicePixelRatio || 1, 1.75);
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
+  landscapeCache.width = canvas.width;
+  landscapeCache.height = canvas.height;
+  lastLandscapeTime = -Infinity;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (reduced.matches) draw(0);
 }
@@ -841,7 +859,7 @@ function cloud(x, y, s, opacity, shade) {
   ctx.fill();
   ctx.restore();
 }
-function draw(t) {
+function drawLandscape(t) {
   ctx.clearRect(0, 0, width, height);
   const s = scene;
   const top = mix(
@@ -1132,6 +1150,16 @@ function draw(t) {
       ctx.restore();
     }
   }
+}
+function draw(t) {
+  if (reduced.matches || t - lastLandscapeTime >= 1 / 30 - 0.001) {
+    drawLandscape(t);
+    landscapeCacheContext.drawImage(canvas, 0, 0);
+    lastLandscapeTime = t;
+  } else {
+    ctx.drawImage(landscapeCache, 0, 0, width, height);
+  }
+  const s = scene;
   const count = Math.floor(
     Math.min(
       210,
@@ -1177,39 +1205,99 @@ function draw(t) {
       }
     }
   }
-  if (s.storm > 0.5 && !reduced.matches && t > lightningAt) {
-    flash = 1;
-    lightningAt = t + 9 + Math.random() * 23;
+  drawLightning(t);
+}
+
+// Lightning follows animation time, so duration does not depend on frame rate.
+function createLightning() {
+  const shell = document.querySelector(".shell");
+  const gutter = Math.max(
+    20,
+    shell.getBoundingClientRect().left +
+      parseFloat(getComputedStyle(shell).paddingLeft),
+  );
+  const right = Math.random() > 0.5;
+  const origin = right ? width - gutter * 0.55 : gutter * 0.55;
+  const amplitude = Math.min(65, gutter * 0.4);
+  const path = [];
+  for (let i = 0; i <= 12; i++) {
+    path.push([
+      (origin + (i ? (Math.random() - 0.5) * amplitude : 0)) / width,
+      0.025 + (i / 12) * 0.72,
+    ]);
   }
-  if (flash > 0.01) {
-    ctx.fillStyle = `rgba(235,242,255,${flash * 0.35})`;
-    ctx.fillRect(0, 0, width, height);
-    if (flash > 0.65) {
-      ctx.strokeStyle = `rgba(245,250,255,${flash})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(width * 0.72, 0);
-      ctx.lineTo(width * 0.69, height * 0.16);
-      ctx.lineTo(width * 0.73, height * 0.15);
-      ctx.lineTo(width * 0.67, height * 0.4);
-      ctx.stroke();
-    }
-    flash *= 0.72;
+  const branches = [4, 7, 9].map((index) => {
+    const [x, y] = path[index];
+    const direction = right ? -1 : 1;
+    return [
+      [x, y],
+      [x + ((direction * amplitude) / width) * 0.4, y + 0.035],
+      [x + ((direction * amplitude) / width) * 0.7, y + 0.085],
+    ];
+  });
+  return {
+    path,
+    branches,
+    started: elapsed,
+    duration: 0.32 + Math.random() * 0.12,
+  };
+}
+function updateLightning() {
+  if (reduced.matches || !target.storm) {
+    lightning = null;
+    flash = 0;
+    return;
   }
+  if (scene.storm > 0.2 && elapsed >= lightningAt) {
+    lightning = createLightning();
+    lightningAt = elapsed + 5 + Math.random() * 9;
+  }
+  const age = lightning ? elapsed - lightning.started : Infinity;
+  flash = lightning && age < lightning.duration ? Math.exp(-age * 10) : 0;
+  if (!flash) lightning = null;
+}
+function drawLightning(t) {
+  if (!lightning || reduced.matches || !target.storm) return;
+  const opacity = Math.max(0, 1 - (t - lightning.started) / lightning.duration);
+  if (!opacity) return;
+  ctx.save();
+  ctx.fillStyle = `rgba(235,242,255,${flash * 0.18})`;
+  ctx.fillRect(0, 0, width, height);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.shadowColor = `rgba(189,216,255,${opacity})`;
+  ctx.shadowBlur = 16;
+  const stroke = (path, lineWidth, alpha) => {
+    ctx.strokeStyle = `rgba(240,247,255,${alpha})`;
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    path.forEach(([x, y], index) =>
+      index
+        ? ctx.lineTo(x * width, y * height)
+        : ctx.moveTo(x * width, y * height),
+    );
+    ctx.stroke();
+  };
+  stroke(lightning.path, 5, opacity * 0.28);
+  stroke(lightning.path, 2, opacity);
+  lightning.branches.forEach((branch) => stroke(branch, 1, opacity * 0.65));
+  ctx.restore();
 }
 function animate(now) {
   frame = 0;
   if (document.hidden || reduced.matches) return;
-  if (now - lastFrame >= 33) {
+  const interval = 1000 / (target.rain > 0.01 || scene.rain > 0.01 ? 60 : 30);
+  if (now - lastFrame >= interval - 0.5) {
     const dt = Math.min(0.1, (now - (previousTime || now)) / 1000);
     previousTime = now;
     elapsed += dt;
     for (const key of Object.keys(scene))
       scene[key] += (target[key] - scene[key]) * Math.min(1, dt * 1.2);
     updatePrecipitation(dt);
+    updateLightning();
     snowCover += (scene.snow - snowCover) * dt * 0.035;
     draw(elapsed);
-    lastFrame = now;
+    lastFrame = now - (Math.max(0, now - lastFrame - interval) % interval);
   }
   frame = requestAnimationFrame(animate);
 }
@@ -1218,10 +1306,17 @@ function startAnimation() {
   frame = 0;
   previousTime = 0;
   if (reduced.matches) {
+    lightning = null;
+    flash = 0;
+    lightningAt = Infinity;
     scene = { ...target };
     snowCover = target.snow;
     draw(elapsed);
-  } else if (!document.hidden) frame = requestAnimationFrame(animate);
+  } else if (!document.hidden) {
+    if (target.storm && !Number.isFinite(lightningAt))
+      lightningAt = elapsed + 0.8 + Math.random() * 1.2;
+    frame = requestAnimationFrame(animate);
+  }
 }
 document.addEventListener("visibilitychange", () => {
   startAnimation();
