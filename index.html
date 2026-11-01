@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#203e46" />
     <link rel="icon" href="data:," />
-    <title>El tiempo</title>
+    <title data-i18n="El tiempo">El tiempo</title>
     <link rel="stylesheet" href="css/styles.css" />
+    <script src="js/i18n.js" defer></script>
     <script src="js/app.js" defer></script>
   </head>
   <body>
@@ -102,7 +103,9 @@
                 id="search"
                 type="search"
                 placeholder="Buscar una ciudad"
+                data-i18n-placeholder="Buscar una ciudad"
                 aria-label="Buscar una ciudad"
+                data-i18n-aria-label="Buscar una ciudad"
                 aria-controls="suggestions"
                 aria-expanded="false"
                 autocomplete="off"
@@ -112,17 +115,33 @@
               id="suggestions"
               class="suggestions"
               aria-label="Sugerencias de ciudades"
+              data-i18n-aria-label="Sugerencias de ciudades"
             ></div>
           </div>
           <button
             class="location-button"
             id="locate"
             aria-label="Usar mi ubicación"
+            data-i18n-aria-label="Usar mi ubicación"
           >
             <svg class="icon"><use href="#i-locate" /></svg
-            ><span>Mi ubicación</span>
+            ><span data-i18n="Mi ubicación">Mi ubicación</span>
           </button>
-          <div class="units" role="group" aria-label="Unidad de temperatura">
+          <select
+            id="language"
+            class="language-select"
+            aria-label="Idioma"
+            data-i18n-aria-label="Idioma"
+          >
+            <option value="es" lang="es">Español</option>
+            <option value="en" lang="en">English</option>
+          </select>
+          <div
+            class="units"
+            role="group"
+            aria-label="Unidad de temperatura"
+            data-i18n-aria-label="Unidad de temperatura"
+          >
             <button class="unit" data-unit="c" aria-pressed="true">°C</button
             ><button class="unit" data-unit="f" aria-pressed="false">°F</button>
           </div>
@@ -133,6 +152,7 @@
           class="hero loading"
           id="hero"
           aria-label="Paisaje y condiciones meteorológicas"
+          data-i18n-aria-label="Paisaje y condiciones meteorológicas"
         >
           <div class="hero-content">
             <div class="place-line">
@@ -157,7 +177,12 @@
           </div>
           <div class="hero-bottom">
             <span class="live" id="live">Conectando con Open-Meteo</span
-            ><button id="return" class="return" hidden>
+            ><button
+              id="return"
+              class="return"
+              hidden
+              data-i18n="Volver al tiempo actual"
+            >
               Volver al tiempo actual
             </button>
           </div>
@@ -170,13 +195,18 @@
         </div>
         <section class="hour-panel" aria-labelledby="hours-title">
           <div class="section-heading">
-            <div><h2 id="hours-title">Las próximas 24 horas</h2></div>
+            <div>
+              <h2 id="hours-title" data-i18n="Las próximas 24 horas">
+                Las próximas 24 horas
+              </h2>
+            </div>
             <div class="forecast-actions">
               <div class="hour-nav">
                 <button
                   class="round"
                   id="prev-hours"
                   aria-label="Ver horas anteriores"
+                  data-i18n-aria-label="Ver horas anteriores"
                 >
                   <svg class="icon icon-reversed">
                     <use href="#i-arrow" />
@@ -185,6 +215,7 @@
                   class="round"
                   id="next-hours"
                   aria-label="Ver horas siguientes"
+                  data-i18n-aria-label="Ver horas siguientes"
                 >
                   <svg class="icon"><use href="#i-arrow" /></svg>
                 </button>
@@ -200,11 +231,18 @@
         <div class="lower">
           <section class="week" aria-labelledby="week-title">
             <div class="section-heading">
-              <h2 id="week-title">Los próximos 7 días</h2>
-              <p>Máximas y mínimas</p>
+              <h2 id="week-title" data-i18n="Los próximos 7 días">
+                Los próximos 7 días
+              </h2>
+              <p data-i18n="Máximas y mínimas">Máximas y mínimas</p>
             </div>
             <div id="days" class="week-list">
-              <p class="empty">Esperando la previsión de esta semana.</p>
+              <p
+                class="empty"
+                data-i18n="Esperando la previsión de esta semana."
+              >
+                Esperando la previsión de esta semana.
+              </p>
             </div>
             <p class="detail-caption" id="day-caption">
               Selecciona un día para explorar su previsión.
@@ -212,7 +250,9 @@
           </section>
           <section class="details" aria-labelledby="details-title">
             <div class="section-heading">
-              <h2 id="details-title">El tiempo, en detalle</h2>
+              <h2 id="details-title" data-i18n="El tiempo, en detalle">
+                El tiempo, en detalle
+              </h2>
               <p id="details-time">Ahora</p>
             </div>
             <div class="details-grid" id="metrics"></div>
@@ -220,7 +260,8 @@
               <div class="sun-time">
                 <svg class="icon"><use href="#i-rise" /></svg>
                 <div>
-                  <small>Amanecer</small><strong id="sunrise">—:—</strong>
+                  <small data-i18n="Amanecer">Amanecer</small
+                  ><strong id="sunrise">—:—</strong>
                 </div>
               </div>
               <svg
@@ -240,7 +281,8 @@
               <div class="sun-time">
                 <svg class="icon"><use href="#i-set" /></svg>
                 <div>
-                  <small>Atardecer</small><strong id="sunset">—:—</strong>
+                  <small data-i18n="Atardecer">Atardecer</small
+                  ><strong id="sunset">—:—</strong>
                 </div>
               </div>
             </div>
@@ -249,8 +291,12 @@
       </main>
       <footer>
         <span>
-          Datos meteorológicos de
-          <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
+          <span data-i18n="Datos meteorológicos de"
+            >Datos meteorológicos de</span
+          >
+          <a href="https://open-meteo.com/" target="_blank" rel="noopener"
+            >Open-Meteo</a
+          >
         </span>
       </footer>
     </div>
