@@ -150,6 +150,7 @@ async function loadWeather(force = false) {
       `<p class="empty">${t("Esperando la previsión de esta semana.")}</p>`;
     renderMetrics({});
     $("sunrise").textContent = $("sunset").textContent = "—:—";
+    renderSunArc();
     $("return").hidden = true;
     $("day-caption").textContent = t(
       "Selecciona un día para explorar su previsión.",
@@ -208,7 +209,8 @@ async function loadWeather(force = false) {
       t("Actualizado a las {time} · Hora local de {city}", {
         time: clock(data.current.time),
         city: placeName(place),
-      }),
+      }) + (place.kind === "ip-location"
+        ? " · " + t("Ubicación aproximada") : ""),
     );
     $("hour-scroll").scrollLeft = 0;
   } catch (error) {
@@ -281,6 +283,7 @@ function render() {
     state.selected === null ? t("Ahora") : clock(w.time);
   $("sunrise").textContent = clock(daily.sunrise[di]);
   $("sunset").textContent = clock(daily.sunset[di]);
+  renderSunArc(w.time, daily.sunrise[di], daily.sunset[di]);
   $("day-caption").textContent =
     fmt(daily.time[di], {
       weekday: "long",
@@ -308,6 +311,26 @@ function render() {
     .forEach((b) =>
       b.setAttribute("aria-pressed", b.dataset.unit === state.unit),
     );
+}
+// This is daylight progress, not an astronomical elevation diagram.
+function renderSunArc(time, sunrise, sunset) {
+  const available = [time, sunrise, sunset].every(valid) && sunset > sunrise;
+  const daylight = available && time >= sunrise && time <= sunset;
+  const sun = $("sun-position");
+  sun.setAttribute("visibility", daylight ? "visible" : "hidden");
+  let label = t("Recorrido diurno no disponible");
+  if (available) {
+    if (daylight) {
+      const progress = (time - sunrise) / (sunset - sunrise);
+      const angle = Math.PI * progress;
+      sun.setAttribute("cx", 60 - 56 * Math.cos(angle));
+      sun.setAttribute("cy", 35 - 29 * Math.sin(angle));
+      label = t("{time} · {percent}% de las horas de luz transcurridas", {
+        time: clock(time), percent: Math.round(progress * 100),
+      });
+    } else label = t("{time} · Fuera de las horas de luz", { time: clock(time) });
+  }
+  $("sun-arc-title").textContent = label;
 }
 function renderHours() {
   const h = state.data.hourly,
@@ -495,23 +518,48 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest(".search")) closeSearch();
 });
 let locationRequest = 0;
-function detectLocation(initial = false) {
+async function detectApproximateLocation() {
+  const request = ++locationRequest;
+  $("city").textContent = t("Tu ubicación");
+  $("region").textContent = t("Localizando…");
+  status(t("Buscando una ubicación aproximada…"));
+  try {
+    // Run in the browser so ipapi locates the visitor's IP, not a server's.
+    const place = await fetchJSON("https://ipapi.co/json/");
+    if (request !== locationRequest) return;
+    if (
+      place.error || !valid(place.latitude) || !valid(place.longitude) ||
+      Math.abs(place.latitude) > 90 || Math.abs(place.longitude) > 180 ||
+      typeof place.city !== "string" || !place.city.trim()
+    ) throw Error("Invalid IP location");
+    state.place = {
+      kind: "ip-location",
+      name: place.city,
+      admin1: place.region,
+      country: place.country_name,
+      country_code: place.country_code,
+      latitude: place.latitude,
+      longitude: place.longitude,
+    };
+    await loadWeather();
+  } catch {
+    if (request !== locationRequest) return;
+    await loadWeather();
+    if (request === locationRequest && state.data)
+      status(() => t("No se pudo estimar tu ubicación.") + " " +
+        t("Mostrando {city}. Puedes buscar otra ciudad.", {
+          city: placeName(state.place),
+        }));
+  }
+}
+function detectLocation() {
   const request = ++locationRequest;
   const fallback = async (message) => {
     if (request !== locationRequest) return;
     $("locate").disabled = false;
-    if (initial) {
-      await loadWeather();
-      if (request === locationRequest && state.data)
-        status(
-          () =>
-            t(message) +
-            " " +
-            t("Mostrando {city}. Puedes buscar otra ciudad.", {
-              city: placeName(state.place),
-            }),
-        );
-    } else status(() => t(message) + " " + t("Puedes buscar tu ciudad."), true);
+    if (!state.data) await loadWeather();
+    if (request !== locationRequest) return;
+    status(() => t(message) + " " + t("Puedes buscar tu ciudad."), true);
   };
   if (!navigator.geolocation) {
     fallback(t("Este navegador no permite usar la ubicación."));
@@ -519,10 +567,6 @@ function detectLocation(initial = false) {
   }
   $("locate").disabled = true;
   status(t("Buscando tu ubicación. Permite el acceso en el navegador…"));
-  if (initial) {
-    $("city").textContent = t("Tu ubicación");
-    $("region").textContent = t("Localizando…");
-  }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       if (request !== locationRequest) return;
@@ -1320,7 +1364,7 @@ function startAnimation() {
 }
 document.addEventListener("visibilitychange", () => {
   startAnimation();
-  if (!document.hidden && Date.now() - state.loaded > 600000) loadWeather();
+  if (!document.hidden && state.loaded && Date.now() - state.loaded > 600000) loadWeather();
 });
 reduced.addEventListener("change", startAnimation);
 $("language").addEventListener("change", (event) =>
@@ -1369,4 +1413,4 @@ WeatherI18n.apply();
 renderMetrics({});
 resize();
 startAnimation();
-detectLocation(true);
+detectApproximateLocation();

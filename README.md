@@ -138,6 +138,6 @@ python3 -m http.server 8080
 
 Abre **http://localhost:8080** en el navegador. No hace falta instalar paquetes ni compilar archivos.
 
-Al iniciar, la aplicación solicita acceso a la ubicación. Si no se concede, utiliza la ubicación guardada o Madrid como alternativa y permite buscar otra ciudad. La geolocalización necesita un contexto seguro: `localhost` durante el desarrollo o HTTPS al publicar.
+La aplicación muestra inicialmente el tiempo de una ubicación aproximada. Para obtener una previsión más precisa, se puede utilizar **«Mi ubicación»** o buscar otra ciudad.
 
 Las consultas de datos necesitan conexión a internet. Para publicar la aplicación, sirve `index.html` junto a las carpetas `css/` y `js/` en un alojamiento estático.

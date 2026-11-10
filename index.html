@@ -265,18 +265,21 @@
                 </div>
               </div>
               <svg
+                id="sun-arc"
                 class="sun-arc"
                 viewBox="0 0 120 40"
                 fill="none"
-                aria-hidden="true"
+                role="img"
+                aria-labelledby="sun-arc-title"
               >
+                <title id="sun-arc-title">—</title>
                 <path
-                  d="M4 36a56 56 0 0 1 112 0"
+                  d="M4 35a56 29 0 0 1 112 0"
                   stroke="currentColor"
                   stroke-dasharray="3 4"
                 />
                 <path d="M0 37h120" stroke="currentColor" />
-                <circle cx="60" cy="7" r="4" fill="#cbb768" />
+                <circle id="sun-position" cx="60" cy="6" r="4" fill="#cbb768" visibility="hidden" />
               </svg>
               <div class="sun-time">
                 <svg class="icon"><use href="#i-set" /></svg>

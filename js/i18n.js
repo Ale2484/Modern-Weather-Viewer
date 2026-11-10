@@ -2,6 +2,10 @@
 /* Interface translations. Spanish is the default unless the user saved English. */
 const WeatherI18n = (() => {
   const english = {
+    "Recorrido diurno no disponible": "Daylight progress unavailable",
+    "{time} · {percent}% de las horas de luz transcurridas":
+      "{time} · {percent}% of daylight hours elapsed",
+    "{time} · Fuera de las horas de luz": "{time} · Outside daylight hours",
     "Buscar una ciudad": "Search for a city",
     "Sugerencias de ciudades": "City suggestions",
     "Usar mi ubicación": "Use my location",
@@ -105,6 +109,9 @@ const WeatherI18n = (() => {
     "Buscando tu ubicación. Permite el acceso en el navegador…":
       "Finding your location. Allow location access in your browser…",
     "Tu ubicación": "Your location",
+    "Buscando una ubicación aproximada…": "Finding an approximate location…",
+    "No se pudo estimar tu ubicación.": "Unable to estimate your location.",
+    "Ubicación aproximada": "Approximate location",
     "Localizando…": "Finding location…",
     "El permiso de ubicación está desactivado.":
       "Location permission is disabled.",
