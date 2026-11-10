@@ -796,16 +796,26 @@ let lastLandscapeTime = -Infinity;
 
 function resize() {
   const rect = canvas.getBoundingClientRect();
+  const nextDpr = Math.min(devicePixelRatio || 1, 1.75);
+  if (rect.width <= 0 || rect.height <= 0) return;
+  if (
+    width === rect.width &&
+    height === rect.height &&
+    dpr === nextDpr &&
+    canvas.width === Math.round(rect.width * nextDpr) &&
+    canvas.height === Math.round(rect.height * nextDpr)
+  ) return;
   width = rect.width;
   height = rect.height;
-  dpr = Math.min(devicePixelRatio || 1, 1.75);
+  dpr = nextDpr;
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
   landscapeCache.width = canvas.width;
   landscapeCache.height = canvas.height;
   lastLandscapeTime = -Infinity;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (reduced.matches) draw(0);
+  // Resizing clears the bitmap: repaint before the browser can show that frame.
+  draw(elapsed);
 }
 new ResizeObserver(resize).observe(canvas);
 const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
